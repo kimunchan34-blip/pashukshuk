@@ -3,8 +3,14 @@
 import { useRef, useState, useCallback } from "react";
 import { Camera, Upload, X, Check, Loader2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import type { HoleScore } from "@/types";
-import type { ParseScorecardResponse } from "@/app/api/parse-scorecard/route";
 import { cn } from "@/lib/utils";
+
+interface ParseScorecardResponse {
+  scores: { hole: number; par: number; score: number }[];
+  playerName?: string;
+  totalScore?: number;
+  confidence?: "high" | "medium" | "low";
+}
 
 interface Props {
   onScoresApplied: (scores: HoleScore[]) => void;

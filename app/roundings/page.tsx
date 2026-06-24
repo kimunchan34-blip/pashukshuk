@@ -130,6 +130,7 @@ export default function RoundingsPage() {
   };
 
   const cycleAttendance = (memberId: string) => {
+    if (!selected) return;
     const next: Rounding = {
       ...selected,
       attendances: selected.attendances.map((a) =>
@@ -142,6 +143,7 @@ export default function RoundingsPage() {
   };
 
   const removeAttendance = (memberId: string) => {
+    if (!selected) return;
     const next: Rounding = {
       ...selected,
       attendances: selected.attendances.filter((a) => a.memberId !== memberId),
@@ -150,6 +152,7 @@ export default function RoundingsPage() {
   };
 
   const addAttendance = (memberId: string) => {
+    if (!selected) return;
     if (selected.attendances.some((a) => a.memberId === memberId)) return;
     const next: Rounding = {
       ...selected,
