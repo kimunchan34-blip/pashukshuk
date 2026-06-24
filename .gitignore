@@ -1,0 +1,23 @@
+# 의존성
+node_modules/
+
+# Next.js 빌드
+.next/
+out/
+
+# 환경변수 (Supabase 키, 비밀번호 포함 - 절대 올리면 안 됨)
+.env.local
+.env.*.local
+.env
+
+# 로그
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

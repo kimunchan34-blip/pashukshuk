@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm install 2>&1)",
+      "PowerShell(npm install next@latest 2>&1)",
+      "PowerShell(npm run build 2>&1)",
+      "PowerShell(npm run dev 2>&1)",
+      "Bash(npm install *)",
+      "Bash(taskkill /F /IM node.exe)"
+    ]
+  }
+}
