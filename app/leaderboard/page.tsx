@@ -26,6 +26,23 @@ const STATUS_LABEL: Record<string, string> = {
   scheduled: "예정", in_progress: "진행중", completed: "완료", cancelled: "취소",
 };
 
+const PAR = 72;
+
+/** 넷스코어 - 파72 = 핸디캡 대비 성과 (음수일수록 잘 침) */
+function getPerformance(net: number) {
+  const diff = net - PAR;
+  if (diff <= -5) return { diff, emoji: "🏆", label: "탁월", color: "text-yellow-600" };
+  if (diff <= -1) return { diff, emoji: "⭐", label: "우수", color: "text-green-600"  };
+  if (diff === 0) return { diff, emoji: "🎯", label: "기준타", color: "text-blue-600"  };
+  if (diff <=  5) return { diff, emoji: "👍", label: "보통",  color: "text-slate-600"  };
+  if (diff <= 10) return { diff, emoji: "😅", label: "열위",  color: "text-amber-600"  };
+  return               { diff, emoji: "💪", label: "분발",    color: "text-red-500"    };
+}
+
+function fmtDiff(diff: number) {
+  return diff > 0 ? `+${diff}` : String(diff);
+}
+
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
 export default function LeaderboardPage() {
@@ -306,13 +323,16 @@ export default function LeaderboardPage() {
                         )}
                       </div>
                       {/* 넷 미리보기 */}
-                      {inputVal && !saved && (
-                        <div className="mt-1.5 ml-12 text-xs text-slate-500">
-                          넷 예상: <span className="font-semibold text-green-700">
-                            {parseInt(inputVal, 10) - member.handicap}
-                          </span> ({inputVal} − {formatHandicap(member.handicap)})
-                        </div>
-                      )}
+                      {inputVal && !saved && (() => {
+                        const net = parseInt(inputVal, 10) - member.handicap;
+                        const p = getPerformance(net);
+                        return (
+                          <div className="mt-1.5 ml-12 text-xs text-slate-500">
+                            예상 성과: <span className={cn("font-semibold", p.color)}>{fmtDiff(p.diff)} {p.emoji} {p.label}</span>
+                            <span className="ml-1 text-slate-400">({inputVal}타 − H{formatHandicap(member.handicap)} = 넷{net})</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -325,7 +345,7 @@ export default function LeaderboardPage() {
             <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-slate-800">이 라운딩 순위</h2>
-                <p className="text-xs text-slate-400 mt-0.5">넷스코어 기준 (낮을수록 상위)</p>
+                <p className="text-xs text-slate-400 mt-0.5">핸디캡 대비 성과 기준</p>
               </div>
               {roundRanking.length > 0 && (
                 <span className="text-xs bg-green-50 text-green-700 font-semibold px-2.5 py-1 rounded-full">
@@ -369,11 +389,19 @@ export default function LeaderboardPage() {
                         </div>
                         <p className="text-xs text-slate-400">그로스 {entry.gross}타</p>
                       </div>
-                      {/* 넷 스코어 */}
-                      <div className="text-right shrink-0">
-                        <p className="text-xl font-black tabular-nums text-slate-800">{entry.net}</p>
-                        <p className="text-[10px] text-slate-400">넷스코어</p>
-                      </div>
+                      {/* 핸디캡 대비 성과 */}
+                      {(() => {
+                        const p = getPerformance(entry.net);
+                        return (
+                          <div className="text-right shrink-0">
+                            <div className="flex items-center gap-1 justify-end">
+                              <span className="text-lg">{p.emoji}</span>
+                              <span className={cn("text-xl font-black tabular-nums", p.color)}>{fmtDiff(p.diff)}</span>
+                            </div>
+                            <p className={cn("text-[10px] font-semibold", p.color)}>{p.label}</p>
+                          </div>
+                        );
+                      })()}
                       {/* 삭제 */}
                       <button onClick={() => deleteScore(entry.memberId)}
                         className="text-[10px] text-slate-300 hover:text-red-400 transition-colors ml-1">✕</button>
@@ -391,7 +419,7 @@ export default function LeaderboardPage() {
         <div className="card overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-50">
             <h2 className="text-sm font-semibold text-slate-800">통산 순위</h2>
-            <p className="text-xs text-slate-400 mt-0.5">전체 라운딩 평균 넷스코어 기준</p>
+            <p className="text-xs text-slate-400 mt-0.5">핸디캡 대비 평균 성과 기준</p>
           </div>
 
           {allTimeRanking.length === 0 ? (
@@ -405,7 +433,7 @@ export default function LeaderboardPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/50">
-                      {["순위", "회원", "핸디캡", "라운딩 수", "평균 그로스", "평균 넷", "최저 넷"].map((h) => (
+                      {["순위", "회원", "핸디캡", "라운딩 수", "평균 그로스", "평균 성과", "최고 성과"].map((h) => (
                         <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3.5 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -415,10 +443,11 @@ export default function LeaderboardPage() {
                       const rank = idx + 1;
                       const style = RANK_STYLE[idx];
                       // 이 회원의 최저 넷 스코어
-                      const memberScores = Object.values(allScores)
+                      const memberNets = Object.values(allScores)
                         .map((rs) => rs[entry.member.id]?.net)
                         .filter((n): n is number => n !== undefined);
-                      const bestNet = memberScores.length > 0 ? Math.min(...memberScores) : "-";
+                      const bestPerf = memberNets.length > 0 ? getPerformance(Math.min(...memberNets)) : null;
+                      const avgPerf  = getPerformance(Math.round(entry.avgNet));
 
                       return (
                         <tr key={entry.member.id} className={cn("table-row-hover", rank === 1 && "bg-yellow-50/30")}>
@@ -455,9 +484,20 @@ export default function LeaderboardPage() {
                             {entry.avgGross.toFixed(1)}타
                           </td>
                           <td className="px-4 py-3.5">
-                            <span className="font-black text-lg text-slate-800 tabular-nums">{entry.avgNet.toFixed(1)}</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-base">{avgPerf.emoji}</span>
+                              <span className={cn("font-black tabular-nums", avgPerf.color)}>{fmtDiff(avgPerf.diff)}</span>
+                              <span className={cn("text-[10px] font-semibold", avgPerf.color)}>{avgPerf.label}</span>
+                            </div>
                           </td>
-                          <td className="px-4 py-3.5 text-green-700 font-bold tabular-nums">{bestNet}</td>
+                          <td className="px-4 py-3.5">
+                            {bestPerf ? (
+                              <div className="flex items-center gap-1">
+                                <span className="text-base">{bestPerf.emoji}</span>
+                                <span className={cn("font-bold tabular-nums", bestPerf.color)}>{fmtDiff(bestPerf.diff)}</span>
+                              </div>
+                            ) : "-"}
+                          </td>
                         </tr>
                       );
                     })}
