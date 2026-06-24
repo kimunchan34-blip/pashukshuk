@@ -292,7 +292,6 @@ export default function LeaderboardPage() {
                           <div className="flex items-center gap-2 shrink-0">
                             <div className="text-right">
                               <p className="text-sm font-bold text-slate-800">{saved.gross}타</p>
-                              <p className="text-xs text-green-700 font-semibold">넷 {saved.net > 0 ? `+${saved.net}` : saved.net}</p>
                             </div>
                             <button onClick={() => { setEditing(member.id); setInputs((p) => ({ ...p, [member.id]: String(saved.gross) })); }}
                               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
@@ -376,7 +375,6 @@ export default function LeaderboardPage() {
                             H{formatHandicap(entry.member!.handicap)}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400">그로스 {entry.gross}타</p>
                       </div>
                       {/* 핸디캡 대비 성과 */}
                       {(() => {
