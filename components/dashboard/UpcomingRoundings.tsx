@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Calendar, MapPin, Clock, Users, ChevronRight } from "lucide-react";
+import { MapPin, Clock, Users, ChevronRight } from "lucide-react";
 import type { Rounding } from "@/types";
-import { formatDate, getDaysUntil, formatCurrency } from "@/lib/utils";
+import { getDaysUntil } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 interface UpcomingRoundingsProps {
@@ -93,11 +93,7 @@ export function UpcomingRoundings({ roundings }: UpcomingRoundingsProps) {
                 </div>
               </div>
 
-              {/* 참가비 */}
-              <div className="text-right shrink-0">
-                <p className="text-sm font-bold text-slate-700">{formatCurrency(rounding.fee)}</p>
-                <ChevronRight size={14} className="text-slate-300 mt-1 ml-auto group-hover:text-green-600 transition-colors" />
-              </div>
+              <ChevronRight size={14} className="text-slate-300 shrink-0 mt-1 group-hover:text-green-600 transition-colors" />
             </Link>
           );
         })}

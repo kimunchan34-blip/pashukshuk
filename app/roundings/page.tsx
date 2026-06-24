@@ -307,7 +307,7 @@ export default function RoundingsPage() {
                 </div>
               )}
             </div>
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 relative">
+            <div className="mt-3 grid grid-cols-3 gap-3 relative">
               {[
                 { icon: MapPin,   label: "코스",   value: selected.courseName },
                 { icon: Calendar, label: "날짜",   value: formatDate(selected.date) },
