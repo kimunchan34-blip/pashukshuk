@@ -30,7 +30,7 @@ const PAR = 72;
 
 /** 넷스코어 - 파72 = 핸디캡 대비 성과 (음수일수록 잘 침) */
 function getPerformance(net: number) {
-  const diff = net - PAR;
+  const diff = Math.round((net - PAR) * 10) / 10;
   if (diff <= -5) return { diff, emoji: "🏆", label: "탁월", color: "text-yellow-600" };
   if (diff <= -1) return { diff, emoji: "⭐", label: "우수", color: "text-green-600"  };
   if (diff === 0) return { diff, emoji: "🎯", label: "기준타", color: "text-blue-600"  };
@@ -255,7 +255,6 @@ export default function LeaderboardPage() {
           {isAdmin && <div className="card overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-50">
               <h2 className="text-sm font-semibold text-slate-800">참가자 점수 입력</h2>
-              <p className="text-xs text-slate-400 mt-0.5">18홀 그로스 합계를 입력하세요 · 넷 = 그로스 − 핸디캡</p>
             </div>
 
             {attendees.length === 0 ? (
@@ -323,16 +322,6 @@ export default function LeaderboardPage() {
                         )}
                       </div>
                       {/* 넷 미리보기 */}
-                      {inputVal && !saved && (() => {
-                        const net = parseInt(inputVal, 10) - member.handicap;
-                        const p = getPerformance(net);
-                        return (
-                          <div className="mt-1.5 ml-12 text-xs text-slate-500">
-                            예상 성과: <span className={cn("font-semibold", p.color)}>{fmtDiff(p.diff)} {p.emoji} {p.label}</span>
-                            <span className="ml-1 text-slate-400">({inputVal}타 − H{formatHandicap(member.handicap)} = 넷{net})</span>
-                          </div>
-                        );
-                      })()}
                     </div>
                   );
                 })}
