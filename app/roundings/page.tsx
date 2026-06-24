@@ -10,7 +10,7 @@ import { MOCK_ROUNDINGS } from "@/lib/mock-data";
 import { GroupAssignment } from "@/components/roundings/GroupAssignment";
 import { AddRoundingModal } from "@/components/roundings/AddRoundingModal";
 import type { Rounding, AttendanceStatus, GroupMember, Member } from "@/types";
-import { formatDate, formatCurrency, getStatusLabel, cn } from "@/lib/utils";
+import { formatDate, getStatusLabel, cn } from "@/lib/utils";
 import * as db from "@/lib/db";
 import { useRole } from "@/contexts/RoleContext";
 
@@ -309,10 +309,9 @@ export default function RoundingsPage() {
             </div>
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 relative">
               {[
-                { icon: MapPin,    label: "코스",   value: selected.courseName },
-                { icon: Calendar,  label: "날짜",   value: formatDate(selected.date) },
-                { icon: Clock,     label: "티오프", value: selected.teeTime },
-                { icon: Users,     label: "참가비", value: formatCurrency(selected.fee) },
+                { icon: MapPin,   label: "코스",   value: selected.courseName },
+                { icon: Calendar, label: "날짜",   value: formatDate(selected.date) },
+                { icon: Clock,    label: "티오프", value: selected.teeTime },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="bg-white/10 rounded-xl p-2.5">
                   <div className="flex items-center gap-1.5 text-white/60 text-xs mb-1">
