@@ -165,7 +165,7 @@ export function AddTransactionModal({
           </FormField>
           <FormField label="금액 (원)" error={errors.amount}>
             <Input
-              type="number" min={0} step={10000}
+              type="number" min={0} step={1}
               value={form.amount}
               onChange={(e) => set("amount", Number(e.target.value))}
             />
