@@ -79,7 +79,7 @@ export interface ShinPerioResult {
 
 // ─── Finance ─────────────────────────────────────────────────────────────────
 
-export type FeeType = "monthly" | "rounding" | "event" | "other";
+export type FeeType = "monthly_fee" | "monthly_interest" | "safebox" | "sponsorship" | "club_expense" | "other";
 export type FeeStatus = "paid" | "unpaid" | "partial";
 export type TransactionType = "income" | "expense";
 

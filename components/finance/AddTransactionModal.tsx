@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Modal, FormField, Input, Select } from "@/components/ui/Modal";
+import { useState, useEffect, useRef } from "react";
+import { Modal, FormField, Select } from "@/components/ui/Modal";
 import type { Transaction, FeeType, TransactionType } from "@/types";
 import type { Member } from "@/types";
 import * as db from "@/lib/db";
@@ -16,17 +16,86 @@ interface Props {
 }
 
 const FEE_TYPE_LABELS: Record<FeeType, string> = {
-  monthly:  "정기 회비",
-  rounding: "라운딩 참가비",
-  event:    "이벤트/대회",
-  other:    "기타",
+  monthly_fee:      "정기회비",
+  monthly_interest: "정기이자",
+  safebox:          "세이프박스",
+  sponsorship:      "모임찬조",
+  club_expense:     "모임지출",
+  other:            "기타",
 };
+
+function DateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [y, setY] = useState(() => value.split("-")[0] ?? "");
+  const [mo, setMo] = useState(() => value.split("-")[1] ?? "");
+  const [d, setD] = useState(() => value.split("-")[2] ?? "");
+  const moRef = useRef<HTMLInputElement>(null);
+  const dRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!value) return;
+    const [pY = "", pM = "", pD = ""] = value.split("-");
+    setY(pY);
+    setMo(pM);
+    setD(pD);
+  }, [value]);
+
+  const emit = (ny: string, nm: string, nd: string) => {
+    if (ny.length === 4 && nm.length === 2 && nd.length === 2) {
+      onChange(`${ny}-${nm}-${nd}`);
+    }
+  };
+
+  const handleYear = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setY(v);
+    if (v.length === 4) moRef.current?.focus();
+    emit(v, mo, d);
+  };
+
+  const handleMonth = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setMo(v);
+    if (v.length === 2) dRef.current?.focus();
+    emit(y, v, d);
+  };
+
+  const handleDay = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setD(v);
+    emit(y, mo, v);
+  };
+
+  return (
+    <div className="flex items-center gap-1 border border-slate-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-green-400 bg-white">
+      <input
+        type="text" inputMode="numeric" placeholder="YYYY" maxLength={4} value={y}
+        onChange={handleYear}
+        className="w-14 text-center outline-none text-sm bg-transparent"
+      />
+      <span className="text-slate-400 text-sm select-none">년</span>
+      <input
+        ref={moRef}
+        type="text" inputMode="numeric" placeholder="MM" maxLength={2} value={mo}
+        onChange={handleMonth}
+        className="w-8 text-center outline-none text-sm bg-transparent"
+      />
+      <span className="text-slate-400 text-sm select-none">월</span>
+      <input
+        ref={dRef}
+        type="text" inputMode="numeric" placeholder="DD" maxLength={2} value={d}
+        onChange={handleDay}
+        className="w-8 text-center outline-none text-sm bg-transparent"
+      />
+      <span className="text-slate-400 text-sm select-none">일</span>
+    </div>
+  );
+}
 
 const makeInit = () => ({
   date:        new Date().toISOString().split("T")[0],
   description: "",
   type:        "income" as TransactionType,
-  feeType:     "monthly" as FeeType,
+  feeType:     "monthly_fee" as FeeType,
   amount:      30000,
   memberId:    "",
 });
@@ -70,7 +139,6 @@ export function AddTransactionModal({
     return Object.keys(e).length === 0;
   };
 
-  // 잔액 미리보기: 수정 시 원래 거래를 제외한 기준 잔액에서 계산
   const baseBalance = isEdit && editTransaction
     ? currentBalance - (editTransaction.type === "income" ? editTransaction.amount : -editTransaction.amount)
     : currentBalance;
@@ -91,7 +159,6 @@ export function AddTransactionModal({
         feeType:     form.feeType,
         amount:      form.amount,
         memberId:    form.memberId || undefined,
-        // balance는 page에서 전체 재계산
         balance:     editTransaction.balance,
       });
     } else {
@@ -142,15 +209,16 @@ export function AddTransactionModal({
 
         {/* 날짜 */}
         <FormField label="날짜" required error={errors.date}>
-          <Input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
+          <DateInput value={form.date} onChange={(v) => set("date", v)} />
         </FormField>
 
         {/* 내역 */}
         <FormField label="내역" required error={errors.description}>
-          <Input
+          <input
             placeholder="예: 6월 정기 회비 - 홍길동"
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
           />
         </FormField>
 
@@ -164,10 +232,11 @@ export function AddTransactionModal({
             </Select>
           </FormField>
           <FormField label="금액 (원)" error={errors.amount}>
-            <Input
+            <input
               type="number" min={0} step={1}
               value={form.amount}
               onChange={(e) => set("amount", Number(e.target.value))}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
             />
           </FormField>
         </div>

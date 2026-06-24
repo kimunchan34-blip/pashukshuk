@@ -4,7 +4,10 @@ import { useState } from "react";
 import { CircleDot, Lock, Eye, EyeOff, ChevronRight } from "lucide-react";
 import { useRole, type Role } from "@/contexts/RoleContext";
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "1234";
+const ROLE_PASSWORDS: Record<"회장" | "총무", string> = {
+  회장: process.env.NEXT_PUBLIC_PRESIDENT_PASSWORD ?? "6789",
+  총무: process.env.NEXT_PUBLIC_SECRETARY_PASSWORD ?? "2345",
+};
 
 export function LoginScreen() {
   const { login } = useRole();
@@ -21,7 +24,7 @@ export function LoginScreen() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
+    if (password === ROLE_PASSWORDS[selected as "회장" | "총무"]) {
       login(selected as Role);
     } else {
       setError("비밀번호가 올바르지 않습니다.");
