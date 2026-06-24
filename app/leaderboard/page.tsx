@@ -505,10 +505,19 @@ export default function LeaderboardPage() {
                   <p className="text-xs text-slate-400 mt-0.5">기록된 라운딩</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-black text-green-700">
-                    {allTimeRanking[0]?.avgNet.toFixed(1) ?? "-"}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">최고 평균 넷</p>
+                  {allTimeRanking[0] ? (() => {
+                    const p = getPerformance(allTimeRanking[0].avgNet);
+                    return (
+                      <>
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-xl">{p.emoji}</span>
+                          <span className={cn("text-2xl font-black", p.color)}>{fmtDiff(p.diff)}</span>
+                        </div>
+                        <p className={cn("text-xs font-semibold mt-0.5", p.color)}>{p.label}</p>
+                      </>
+                    );
+                  })() : <p className="text-2xl font-black text-slate-800">-</p>}
+                  <p className="text-xs text-slate-400 mt-0.5">최고 성과</p>
                 </div>
               </div>
             </>
