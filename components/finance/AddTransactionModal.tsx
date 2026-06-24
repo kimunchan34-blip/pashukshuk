@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Modal, FormField, Select } from "@/components/ui/Modal";
 import type { Transaction, FeeType, TransactionType } from "@/types";
-import type { Member } from "@/types";
-import * as db from "@/lib/db";
 
 interface Props {
   open: boolean;
@@ -24,19 +22,27 @@ const FEE_TYPE_LABELS: Record<FeeType, string> = {
   other:            "기타",
 };
 
-function DateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [y, setY] = useState(() => value.split("-")[0] ?? "");
+function DateInput({ value, onChange, open }: { value: string; onChange: (v: string) => void; open: boolean }) {
+  const [y, setY]   = useState(() => value.split("-")[0] ?? "");
   const [mo, setMo] = useState(() => value.split("-")[1] ?? "");
-  const [d, setD] = useState(() => value.split("-")[2] ?? "");
+  const [d, setD]   = useState(() => value.split("-")[2] ?? "");
+  const yRef  = useRef<HTMLInputElement>(null);
   const moRef = useRef<HTMLInputElement>(null);
-  const dRef = useRef<HTMLInputElement>(null);
+  const dRef  = useRef<HTMLInputElement>(null);
 
+  // 모달 열릴 때 연도 필드에 자동 포커스
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => yRef.current?.focus(), 80);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  // 외부에서 value 변경 시 동기화
   useEffect(() => {
     if (!value) return;
     const [pY = "", pM = "", pD = ""] = value.split("-");
-    setY(pY);
-    setMo(pM);
-    setD(pD);
+    setY(pY); setMo(pM); setD(pD);
   }, [value]);
 
   const emit = (ny: string, nm: string, nd: string) => {
@@ -68,6 +74,7 @@ function DateInput({ value, onChange }: { value: string; onChange: (v: string) =
   return (
     <div className="flex items-center gap-1 border border-slate-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-green-400 bg-white">
       <input
+        ref={yRef}
         type="text" inputMode="numeric" placeholder="YYYY" maxLength={4} value={y}
         onChange={handleYear}
         className="w-14 text-center outline-none text-sm bg-transparent"
@@ -97,7 +104,6 @@ const makeInit = () => ({
   type:        "income" as TransactionType,
   feeType:     "monthly_fee" as FeeType,
   amount:      30000,
-  memberId:    "",
 });
 
 export function AddTransactionModal({
@@ -107,9 +113,6 @@ export function AddTransactionModal({
   const [form, setForm]     = useState(makeInit());
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [loading, setLoading] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
-
-  useEffect(() => { db.getMembers().then(setMembers).catch(console.error); }, [open]);
 
   useEffect(() => {
     if (editTransaction) {
@@ -119,7 +122,6 @@ export function AddTransactionModal({
         type:        editTransaction.type,
         feeType:     editTransaction.feeType,
         amount:      editTransaction.amount,
-        memberId:    editTransaction.memberId ?? "",
       });
     } else {
       setForm(makeInit());
@@ -158,7 +160,6 @@ export function AddTransactionModal({
         type:        form.type,
         feeType:     form.feeType,
         amount:      form.amount,
-        memberId:    form.memberId || undefined,
         balance:     editTransaction.balance,
       });
     } else {
@@ -169,7 +170,6 @@ export function AddTransactionModal({
         type:        form.type,
         feeType:     form.feeType,
         amount:      form.amount,
-        memberId:    form.memberId || undefined,
         balance:     previewBalance,
       });
     }
@@ -209,7 +209,7 @@ export function AddTransactionModal({
 
         {/* 날짜 */}
         <FormField label="날짜" required error={errors.date}>
-          <DateInput value={form.date} onChange={(v) => set("date", v)} />
+          <DateInput value={form.date} onChange={(v) => set("date", v)} open={open} />
         </FormField>
 
         {/* 내역 */}
@@ -233,23 +233,17 @@ export function AddTransactionModal({
           </FormField>
           <FormField label="금액 (원)" error={errors.amount}>
             <input
-              type="number" min={0} step={1}
-              value={form.amount}
-              onChange={(e) => set("amount", Number(e.target.value))}
+              type="text" inputMode="numeric"
+              value={form.amount === 0 ? "" : form.amount.toLocaleString()}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/,/g, "").replace(/\D/g, "");
+                set("amount", raw === "" ? 0 : Number(raw));
+              }}
+              placeholder="0"
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
             />
           </FormField>
         </div>
-
-        {/* 회원 연결 (선택) */}
-        <FormField label="회원 연결 (선택)">
-          <Select value={form.memberId} onChange={(e) => set("memberId", e.target.value)}>
-            <option value="">— 선택 안 함 —</option>
-            {members.filter((m) => m.status === "active").map((m) => (
-              <option key={m.id} value={m.id}>{m.name} ({m.department})</option>
-            ))}
-          </Select>
-        </FormField>
 
         {/* 잔액 미리보기 */}
         <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center justify-between">
