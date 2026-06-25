@@ -22,7 +22,7 @@ const FEE_TYPE_LABELS: Record<FeeType, string> = {
   other:            "기타",
 };
 
-function DateInput({ value, onChange, open }: { value: string; onChange: (v: string) => void; open: boolean }) {
+function DateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [y, setY]   = useState(() => value.split("-")[0] ?? "");
   const [mo, setMo] = useState(() => value.split("-")[1] ?? "");
   const [d, setD]   = useState(() => value.split("-")[2] ?? "");
@@ -30,13 +30,11 @@ function DateInput({ value, onChange, open }: { value: string; onChange: (v: str
   const moRef = useRef<HTMLInputElement>(null);
   const dRef  = useRef<HTMLInputElement>(null);
 
-  // 모달 열릴 때 연도 필드에 자동 포커스
+  // 마운트 시 연도 필드 포커스 (Modal 애니메이션 250ms 이후)
   useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => yRef.current?.focus(), 80);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
+    const t = setTimeout(() => yRef.current?.focus(), 300);
+    return () => clearTimeout(t);
+  }, []);
 
   // 외부에서 value 변경 시 동기화
   useEffect(() => {
@@ -103,7 +101,7 @@ const makeInit = () => ({
   description: "",
   type:        "income" as TransactionType,
   feeType:     "monthly_fee" as FeeType,
-  amount:      30000,
+  amount:      0,
 });
 
 export function AddTransactionModal({
@@ -209,7 +207,7 @@ export function AddTransactionModal({
 
         {/* 날짜 */}
         <FormField label="날짜" required error={errors.date}>
-          <DateInput value={form.date} onChange={(v) => set("date", v)} open={open} />
+          <DateInput value={form.date} onChange={(v) => set("date", v)} />
         </FormField>
 
         {/* 내역 */}
@@ -240,7 +238,7 @@ export function AddTransactionModal({
                 set("amount", raw === "" ? 0 : Number(raw));
               }}
               placeholder="0"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-400"
             />
           </FormField>
         </div>
