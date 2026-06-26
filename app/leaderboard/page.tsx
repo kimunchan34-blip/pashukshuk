@@ -55,6 +55,8 @@ export default function LeaderboardPage() {
   const { isAdmin } = useRole();
   const [inputs, setInputs]         = useState<Record<string, string>>({}); // memberId → gross string
   const [editing, setEditing]       = useState<string | null>(null);        // memberId being edited
+  const [alltimePage, setAlltimePage] = useState(1);
+  const ALLTIME_PER_PAGE = 10;
 
   useEffect(() => {
     Promise.all([db.getRoundings(), db.getMembers(), db.getRoundScores()])
@@ -158,6 +160,11 @@ export default function LeaderboardPage() {
   }, [allScores, members]);
 
   const completedCount = Object.keys(roundScores).length;
+  const alltimeTotalPages = Math.ceil(allTimeRanking.length / ALLTIME_PER_PAGE);
+  const pagedAlltime = allTimeRanking.slice(
+    (alltimePage - 1) * ALLTIME_PER_PAGE,
+    alltimePage * ALLTIME_PER_PAGE
+  );
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -420,15 +427,15 @@ export default function LeaderboardPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/50">
-                      {["순위", "회원", "핸디캡", "라운딩 수", "평균 그로스", "평균 성과", "최고 성과"].map((h) => (
+                      {["순위", "회원", "핸디캡", "라운딩 수", "평균타수", "평균 성과", "최고 성과"].map((h) => (
                         <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3.5 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {allTimeRanking.map((entry, idx) => {
-                      const rank = idx + 1;
-                      const style = RANK_STYLE[idx];
+                    {pagedAlltime.map((entry, idx) => {
+                      const rank = (alltimePage - 1) * ALLTIME_PER_PAGE + idx + 1;
+                      const style = RANK_STYLE[rank - 1];
                       // 이 회원의 최저 넷 스코어
                       const memberNets = Object.values(allScores)
                         .map((rs) => rs[entry.member.id]?.net)
@@ -491,6 +498,44 @@ export default function LeaderboardPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* 페이지네이션 */}
+              {alltimeTotalPages > 1 && (
+                <div className="flex items-center justify-between px-5 py-3 border-t border-slate-50">
+                  <span className="text-xs text-slate-400">
+                    {(alltimePage - 1) * ALLTIME_PER_PAGE + 1}–{Math.min(alltimePage * ALLTIME_PER_PAGE, allTimeRanking.length)} / {allTimeRanking.length}명
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setAlltimePage((p) => Math.max(1, p - 1))}
+                      disabled={alltimePage === 1}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    {Array.from({ length: alltimeTotalPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setAlltimePage(p)}
+                        className={cn(
+                          "w-7 h-7 rounded-lg text-xs font-medium transition-colors",
+                          alltimePage === p ? "text-white" : "hover:bg-slate-100 text-slate-500"
+                        )}
+                        style={alltimePage === p ? { background: "#0B4619" } : {}}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setAlltimePage((p) => Math.min(alltimeTotalPages, p + 1))}
+                      disabled={alltimePage === alltimeTotalPages}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* 통산 통계 요약 */}
               <div className="px-5 py-4 border-t border-slate-50 grid grid-cols-3 gap-4">

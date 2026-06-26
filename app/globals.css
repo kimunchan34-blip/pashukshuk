@@ -16,9 +16,16 @@
     @apply border-slate-200;
   }
 
+  html {
+    height: 100%;
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-slate-50 text-slate-800 font-sans antialiased;
     font-family: "Pretendard Variable", Pretendard, Inter, system-ui, sans-serif;
+    height: 100%;
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Legend,
 } from "recharts";
-import { TrendingUp, TrendingDown, Wallet, Plus, Pencil, Trash2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { AddTransactionModal } from "@/components/finance/AddTransactionModal";
 import type { Transaction } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -16,6 +16,8 @@ const TRANSACTION_COLORS: Record<string, string> = {
   income:  "text-green-600",
   expense: "text-red-500",
 };
+
+const HISTORY_PER_PAGE = 10;
 
 const numId = (id: string) => { const n = parseInt(id.replace(/\D/g, ""), 10); return isNaN(n) ? 0 : n; };
 
@@ -60,6 +62,8 @@ export default function FinancePage() {
   const [addModalOpen, setAddModalOpen]       = useState(false);
   const [editingTx, setEditingTx]             = useState<Transaction | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear]       = useState<string>("전체");
+  const [currentPage, setCurrentPage]         = useState(1);
 
   useEffect(() => {
     (async () => {
@@ -85,11 +89,25 @@ export default function FinancePage() {
     })();
   }, []);
 
+  // 연도 목록 (내림차순)
+  const financeYears = useMemo(() =>
+    [...new Set(transactions.map((t) => t.date.slice(0, 4)))].sort((a, b) => b.localeCompare(a)),
+    [transactions]
+  );
+
+  // 선택된 연도로 필터된 거래 내역
+  const filteredTx = useMemo(() =>
+    selectedYear === "전체"
+      ? transactions
+      : transactions.filter((t) => t.date.startsWith(selectedYear)),
+    [transactions, selectedYear]
+  );
+
   const currentBalance = transactions.length > 0
     ? [...transactions].sort(chronoAsc).at(-1)!.balance
     : 0;
 
-  const monthlyStats = buildMonthlyStats(transactions, baseBalance);
+  const monthlyStats = buildMonthlyStats(filteredTx, baseBalance);
 
   const applyRecalc = (recalced: Transaction[]) => {
     setTransactions(recalced);
@@ -115,10 +133,25 @@ export default function FinancePage() {
     setDeleteConfirmId(null);
   };
 
-  const monthlyIncome  = transactions.filter((t) => t.type === "income"  && t.date.startsWith("2026-06")).reduce((s, t) => s + t.amount, 0);
-  const monthlyExpense = transactions.filter((t) => t.type === "expense" && t.date.startsWith("2026-06")).reduce((s, t) => s + t.amount, 0);
+  // 요약 카드: 전체 선택 시 이번 달, 연도 선택 시 해당 연도 합계
+  const currentMonthStr = new Date().toISOString().slice(0, 7);
+  const summaryIncome = selectedYear === "전체"
+    ? transactions.filter((t) => t.type === "income"  && t.date.startsWith(currentMonthStr)).reduce((s, t) => s + t.amount, 0)
+    : filteredTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const summaryExpense = selectedYear === "전체"
+    ? transactions.filter((t) => t.type === "expense" && t.date.startsWith(currentMonthStr)).reduce((s, t) => s + t.amount, 0)
+    : filteredTx.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const summaryLabel = selectedYear === "전체" ? "이번 달" : `${selectedYear}년`;
 
-  const displayedTx = [...transactions].sort((a, b) => -chronoAsc(a, b));
+  // 거래 내역 (최신순 정렬, 연도 필터 적용)
+  const displayedTx = [...filteredTx].sort((a, b) => -chronoAsc(a, b));
+  const totalPages  = Math.ceil(displayedTx.length / HISTORY_PER_PAGE);
+  const pagedTx     = displayedTx.slice((currentPage - 1) * HISTORY_PER_PAGE, currentPage * HISTORY_PER_PAGE);
+
+  const handleYearSelect = (year: string) => {
+    setSelectedYear(year);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -139,18 +172,44 @@ export default function FinancePage() {
         )}
       </div>
 
+      {/* 연도 필터 */}
+      {financeYears.length > 0 && (
+        <div className="flex gap-1 flex-wrap">
+          {["전체", ...financeYears].map((year) => (
+            <button
+              key={year}
+              onClick={() => handleYearSelect(year)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all",
+                selectedYear === year
+                  ? "text-white shadow-sm"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              )}
+              style={selectedYear === year ? { background: "#0B4619" } : {}}
+            >
+              {year === "전체" ? "전체" : `${year}년`}
+              {year !== "전체" && (
+                <span className={cn("ml-1.5 text-[10px]", selectedYear === year ? "text-white/70" : "text-slate-400")}>
+                  {transactions.filter((t) => t.date.startsWith(year)).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 요약 카드 */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "총 잔액",      value: formatCurrency(currentBalance), icon: Wallet,      color: "text-green-700", bg: "bg-green-50" },
-          { label: "이번 달 수입", value: formatCurrency(monthlyIncome),  icon: TrendingUp,  color: "text-blue-700",  bg: "bg-blue-50"  },
-          { label: "이번 달 지출", value: formatCurrency(monthlyExpense), icon: TrendingDown, color: "text-red-500",  bg: "bg-red-50"   },
+          { label: "총 잔액",                  value: formatCurrency(currentBalance), icon: Wallet,      color: "text-green-700", bg: "bg-green-50" },
+          { label: `${summaryLabel} 수입`,     value: formatCurrency(summaryIncome),  icon: TrendingUp,  color: "text-blue-700",  bg: "bg-blue-50"  },
+          { label: `${summaryLabel} 지출`,     value: formatCurrency(summaryExpense), icon: TrendingDown, color: "text-red-500", bg: "bg-red-50"   },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="card p-4">
             <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center mb-3", bg)}>
               <Icon size={18} className={color} />
             </div>
-            <p className="text-xs text-slate-400">{label}</p>
+            <p className="text-xs text-slate-400 truncate">{label}</p>
             <p className="text-xl font-bold text-slate-800 mt-0.5 tabular-nums">{value}</p>
           </div>
         ))}
@@ -176,7 +235,7 @@ export default function FinancePage() {
       {activeTab === "overview" && (
         monthlyStats.length === 0 ? (
           <div className="card py-16 text-center text-slate-400 text-sm">
-            거래 내역이 없어 통계를 표시할 수 없습니다.
+            {selectedYear === "전체" ? "거래 내역이 없어 통계를 표시할 수 없습니다." : `${selectedYear}년 거래 내역이 없습니다.`}
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -219,61 +278,107 @@ export default function FinancePage() {
       {/* ── 거래 내역 탭 ── */}
       {activeTab === "history" && (
         <div className="card overflow-hidden">
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  {["날짜", "내용", "구분", "금액", "잔액", "관리"].map((h) => (
-                    <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-5 py-3.5">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {displayedTx.map((tx) => (
-                  <tr key={tx.id} className="table-row-hover">
-                    <td className="px-5 py-3.5 text-xs text-slate-400 whitespace-nowrap">{tx.date}</td>
-                    <td className="px-5 py-3.5 text-slate-700">{tx.description}</td>
-                    <td className="px-5 py-3.5">
-                      <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full",
-                        tx.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600")}>
-                        {tx.type === "income" ? "수입" : "지출"}
-                      </span>
-                    </td>
-                    <td className={cn("px-5 py-3.5 font-semibold tabular-nums", TRANSACTION_COLORS[tx.type])}>
-                      {tx.type === "income" ? "+" : "-"}{formatCurrency(tx.amount)}
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-600 tabular-nums text-sm">
-                      {formatCurrency(tx.balance)}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {deleteConfirmId === tx.id ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-500">삭제할까요?</span>
-                          <button onClick={() => handleDeleteTransaction(tx.id)} className="text-xs text-red-600 font-semibold hover:text-red-700">확인</button>
-                          <button onClick={() => setDeleteConfirmId(null)} className="text-xs text-slate-400">취소</button>
-                        </div>
-                      ) : isAdmin ? (
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => { setEditingTx(tx); setAddModalOpen(true); }}
-                            className="flex items-center gap-1 text-xs text-green-700 font-medium hover:text-green-800"
-                          >
-                            <Pencil size={12} /> 수정
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirmId(tx.id)}
-                            className="flex items-center gap-1 text-xs text-red-400 font-medium hover:text-red-600"
-                          >
-                            <Trash2 size={12} /> 삭제
-                          </button>
-                        </div>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {displayedTx.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 text-sm">
+              {selectedYear === "전체" ? "거래 내역이 없습니다." : `${selectedYear}년 거래 내역이 없습니다.`}
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/50">
+                      {["날짜", "내용", "구분", "금액", "잔액", "관리"].map((h) => (
+                        <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-5 py-3.5 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {pagedTx.map((tx) => (
+                      <tr key={tx.id} className="table-row-hover">
+                        <td className="px-5 py-3.5 text-xs text-slate-400 whitespace-nowrap">{tx.date}</td>
+                        <td className="px-5 py-3.5 text-slate-700">{tx.description}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full",
+                            tx.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600")}>
+                            {tx.type === "income" ? "수입" : "지출"}
+                          </span>
+                        </td>
+                        <td className={cn("px-5 py-3.5 font-semibold tabular-nums", TRANSACTION_COLORS[tx.type])}>
+                          {tx.type === "income" ? "+" : "-"}{formatCurrency(tx.amount)}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-600 tabular-nums text-sm">
+                          {formatCurrency(tx.balance)}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {deleteConfirmId === tx.id ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-500">삭제할까요?</span>
+                              <button onClick={() => handleDeleteTransaction(tx.id)} className="text-xs text-red-600 font-semibold hover:text-red-700">확인</button>
+                              <button onClick={() => setDeleteConfirmId(null)} className="text-xs text-slate-400">취소</button>
+                            </div>
+                          ) : isAdmin ? (
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => { setEditingTx(tx); setAddModalOpen(true); }}
+                                className="flex items-center gap-1 text-xs text-green-700 font-medium hover:text-green-800"
+                              >
+                                <Pencil size={12} /> 수정
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(tx.id)}
+                                className="flex items-center gap-1 text-xs text-red-400 font-medium hover:text-red-600"
+                              >
+                                <Trash2 size={12} /> 삭제
+                              </button>
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 페이지네이션 */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-5 py-3 border-t border-slate-50">
+                  <span className="text-xs text-slate-400">
+                    {(currentPage - 1) * HISTORY_PER_PAGE + 1}–{Math.min(currentPage * HISTORY_PER_PAGE, displayedTx.length)} / 총 {displayedTx.length}건
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setCurrentPage(p)}
+                        className={cn(
+                          "w-7 h-7 rounded-lg text-xs font-medium transition-colors",
+                          currentPage === p ? "text-white" : "hover:bg-slate-100 text-slate-500"
+                        )}
+                        style={currentPage === p ? { background: "#0B4619" } : {}}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

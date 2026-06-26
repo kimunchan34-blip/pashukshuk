@@ -25,12 +25,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <RoleProvider>
           <AppShell>
-            <div className="flex min-h-screen">
+            <div className="flex h-screen overflow-hidden">
               <Sidebar />
-              <div className="flex-1 flex flex-col md:ml-60 min-h-screen">
+              <div className="flex-1 flex flex-col md:ml-60 overflow-hidden min-w-0">
                 <MobileHeader />
-                <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 max-w-7xl w-full mx-auto">
-                  {children}
+                <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 pb-24 md:pb-8">
+                  <div className="max-w-7xl mx-auto w-full">
+                    {children}
+                  </div>
                 </main>
               </div>
               <MobileNav />
