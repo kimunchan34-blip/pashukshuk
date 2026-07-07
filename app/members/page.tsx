@@ -21,11 +21,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function MembersPage() {
   const [search, setSearch]           = useState("");
-  const [sortKey, setSortKey]         = useState<SortKey>("handicap");
+  const [sortKey, setSortKey]         = useState<SortKey>("joinedAt");
   const [sortDir, setSortDir]         = useState<SortDir>("asc");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
-  const [editHandicap, setEditHandicap] = useState<string>("0");
   const [members, setMembers]         = useState<Member[]>([]);
   const { isAdmin } = useRole();
   const [loading, setLoading]         = useState(true);
@@ -57,24 +55,6 @@ export default function MembersPage() {
   const handleSort = (key: SortKey) => {
     if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("asc"); }
-  };
-
-  const startInlineEdit = (member: Member) => {
-    setInlineEditId(member.id);
-    setEditHandicap(String(member.handicap));
-  };
-
-  const saveHandicap = (id: string) => {
-    const parsed = parseFloat(editHandicap);
-    if (isNaN(parsed)) { setInlineEditId(null); return; }
-    const rounded = Math.round(parsed * 10) / 10;
-    setMembers((prev) => prev.map((m) => {
-      if (m.id !== id) return m;
-      const updated = { ...m, handicap: rounded };
-      db.upsertMember(updated).catch(console.error);
-      return updated;
-    }));
-    setInlineEditId(null);
   };
 
   const handleEdit   = (member: Member) => { setEditingMember(member); setAddModalOpen(true); };
@@ -145,7 +125,14 @@ export default function MembersPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/50">
-                    {([["이름","name"],["부서/직책","department"],["핸디캡","handicap"],["가입일","joinedAt"],["상태",null],["관리",null]] as [string, SortKey|null][]).map(([label, key]) => (
+                    {([
+                      ["이름","name"],
+                      ["부서/직책","department"],
+                      ...(isAdmin ? [["핸디캡","handicap"] as [string, SortKey]] : []),
+                      ["가입일","joinedAt"],
+                      ["상태",null],
+                      ...(isAdmin ? [["관리",null] as [string, null]] : []),
+                    ] as [string, SortKey|null][]).map(([label, key]) => (
                       <th key={label} onClick={() => key && handleSort(key)}
                         className={cn("text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-5 py-3.5", key && "cursor-pointer hover:text-slate-700 select-none")}>
                         <span className="flex items-center gap-1">{label}{key && <SortIcon k={key} />}</span>
@@ -169,23 +156,13 @@ export default function MembersPage() {
                         <p className="text-slate-700">{member.department}</p>
                         <p className="text-xs text-slate-400">{member.position}</p>
                       </td>
-                      <td className="px-5 py-3.5">
-                        {inlineEditId === member.id ? (
-                          <div className="flex items-center gap-2">
-                            <input type="text" inputMode="decimal" value={editHandicap}
-                              onChange={(e) => { const r = e.target.value; if (r===""||r==="-"||/^-?\d{0,2}(\.\d?)?$/.test(r)) setEditHandicap(r); }}
-                              onKeyDown={(e) => { if(e.key==="Enter") saveHandicap(member.id); if(e.key==="Escape") setInlineEditId(null); }}
-                              className="w-20 border border-green-400 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-400" autoFocus />
-                            <button onClick={() => saveHandicap(member.id)} className="text-xs text-green-700 font-semibold">저장</button>
-                            <button onClick={() => setInlineEditId(null)} className="text-xs text-slate-400">취소</button>
-                          </div>
-                        ) : (
-                          <span className={cn("text-xs font-bold px-2.5 py-0.5 rounded-full cursor-pointer hover:opacity-80", getHandicapBadgeColor(member.handicap))}
-                            onClick={() => startInlineEdit(member)} title="클릭하여 핸디캡 수정">
+                      {isAdmin && (
+                        <td className="px-5 py-3.5">
+                          <span className={cn("text-xs font-bold px-2.5 py-0.5 rounded-full", getHandicapBadgeColor(member.handicap))}>
                             {formatHandicap(member.handicap)}
                           </span>
-                        )}
-                      </td>
+                        </td>
+                      )}
                       <td className="px-5 py-3.5 text-xs text-slate-400">{formatDate(member.joinedAt)}</td>
                       <td className="px-5 py-3.5">
                         <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full", STATUS_COLORS[member.status])}>
@@ -233,18 +210,23 @@ export default function MembersPage() {
                         <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", STATUS_COLORS[member.status])}>
                           {getStatusLabel(member.status)}
                         </span>
+                        {isAdmin && (
+                          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", getHandicapBadgeColor(member.handicap))}>
+                            H{formatHandicap(member.handicap)}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-slate-400">{member.department} · {member.position}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">가입일 {formatDate(member.joinedAt)}</p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full", getHandicapBadgeColor(member.handicap))}>
-                        {formatHandicap(member.handicap)}
-                      </span>
-                      <button onClick={() => handleEdit(member)} className="p-1.5 rounded-lg hover:bg-green-50 text-green-700"><Pencil size={13} /></button>
-                      <button onClick={() => setDeleteConfirmId(member.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400"><Trash2 size={13} /></button>
-                    </div>
+                    {isAdmin && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => handleEdit(member)} className="p-1.5 rounded-lg hover:bg-green-50 text-green-700"><Pencil size={13} /></button>
+                        <button onClick={() => setDeleteConfirmId(member.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400"><Trash2 size={13} /></button>
+                      </div>
+                    )}
                   </div>
-                  {deleteConfirmId === member.id && (
+                  {isAdmin && deleteConfirmId === member.id && (
                     <div className="mt-2 flex items-center justify-end gap-3 bg-red-50 rounded-xl px-3 py-2">
                       <span className="text-xs text-slate-500">정말 삭제할까요?</span>
                       <button onClick={() => handleDelete(member.id)} className="text-xs text-red-600 font-semibold">확인</button>
@@ -274,6 +256,7 @@ export default function MembersPage() {
           db.upsertMember(updated).catch(console.error);
         }}
         editMember={editingMember}
+        canManageHandicap={isAdmin}
       />
     </div>
   );

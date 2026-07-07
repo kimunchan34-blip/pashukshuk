@@ -9,7 +9,7 @@ import { cn, formatHandicap, getHandicapBadgeColor, formatDate } from "@/lib/uti
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
-type RoundScore = { gross: number; net: number };
+type RoundScore = { gross: number; net: number; handicap: number };
 // roundingId → memberId → score
 type AllRoundScores = Record<string, Record<string, RoundScore>>;
 
@@ -54,6 +54,7 @@ export default function LeaderboardPage() {
   const [activeTab,  setActiveTab]  = useState<"rounding" | "alltime">("rounding");
   const { isAdmin } = useRole();
   const [inputs, setInputs]         = useState<Record<string, string>>({}); // memberId → gross string
+  const [handicapInputs, setHandicapInputs] = useState<Record<string, string>>({}); // memberId → handicap string
   const [editing, setEditing]       = useState<string | null>(null);        // memberId being edited
   const [alltimePage, setAlltimePage] = useState(1);
   const ALLTIME_PER_PAGE = 10;
@@ -103,18 +104,24 @@ export default function LeaderboardPage() {
 
   // 점수 저장
   const submitScore = (memberId: string) => {
-    const grossStr = (inputs[memberId] ?? "").trim();
-    const gross = parseInt(grossStr, 10);
-    if (isNaN(gross) || gross < 18 || gross > 200) return;
     const member = members.find((m) => m.id === memberId);
-    const net = gross - (member?.handicap ?? 0);
+    const saved = roundScores[memberId];
+    const grossStr = (inputs[memberId] ?? "").trim();
+    const handicapStr = (handicapInputs[memberId] ?? String(saved?.handicap ?? member?.handicap ?? "")).trim();
+    const gross = parseInt(grossStr, 10);
+    const handicap = parseFloat(handicapStr);
+    if (isNaN(gross) || gross < 18 || gross > 200) return;
+    if (isNaN(handicap) || handicap < -10 || handicap > 54) return;
+    const roundedHandicap = Math.round(handicap * 10) / 10;
+    const net = Math.round((gross - roundedHandicap) * 10) / 10;
     const updated: AllRoundScores = {
       ...allScores,
-      [selectedId]: { ...roundScores, [memberId]: { gross, net } },
+      [selectedId]: { ...roundScores, [memberId]: { gross, handicap: roundedHandicap, net } },
     };
     setAllScores(updated);
-    db.upsertRoundScore(selectedId, memberId, { gross, net }).catch(console.error);
+    db.upsertRoundScore(selectedId, memberId, { gross, handicap: roundedHandicap, net }).catch(console.error);
     setInputs((prev) => { const n = { ...prev }; delete n[memberId]; return n; });
+    setHandicapInputs((prev) => { const n = { ...prev }; delete n[memberId]; return n; });
     setEditing(null);
   };
 
@@ -140,22 +147,24 @@ export default function LeaderboardPage() {
 
   // 통산 순위 계산 (라운딩 참여 횟수 ≥ 1)
   const allTimeRanking = useMemo(() => {
-    const map = new Map<string, { totalNet: number; totalGross: number; count: number; member: Member }>();
+    const map = new Map<string, { totalNet: number; totalGross: number; totalHandicap: number; count: number; member: Member }>();
     for (const [, scores] of Object.entries(allScores)) {
       for (const [memberId, score] of Object.entries(scores)) {
         const member = members.find((m) => m.id === memberId);
         if (!member) continue;
-        const prev = map.get(memberId) ?? { totalNet: 0, totalGross: 0, count: 0, member };
+        const scoreHandicap = score.handicap ?? Math.round((score.gross - score.net) * 10) / 10;
+        const prev = map.get(memberId) ?? { totalNet: 0, totalGross: 0, totalHandicap: 0, count: 0, member };
         map.set(memberId, {
           member,
           count: prev.count + 1,
           totalNet: prev.totalNet + score.net,
           totalGross: prev.totalGross + score.gross,
+          totalHandicap: prev.totalHandicap + scoreHandicap,
         });
       }
     }
     return [...map.values()]
-      .map((v) => ({ ...v, avgNet: v.totalNet / v.count, avgGross: v.totalGross / v.count }))
+      .map((v) => ({ ...v, avgNet: v.totalNet / v.count, avgGross: v.totalGross / v.count, avgHandicap: v.totalHandicap / v.count }))
       .sort((a, b) => a.avgNet - b.avgNet);
   }, [allScores, members]);
 
@@ -165,6 +174,22 @@ export default function LeaderboardPage() {
     (alltimePage - 1) * ALLTIME_PER_PAGE,
     alltimePage * ALLTIME_PER_PAGE
   );
+
+  if (!isAdmin) {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">리더보드</h1>
+          <p className="text-sm text-slate-400 mt-0.5">회장·총무 전용 메뉴입니다</p>
+        </div>
+        <div className="card px-6 py-16 text-center">
+          <Trophy size={36} className="mx-auto mb-3 text-slate-200" />
+          <p className="text-sm font-semibold text-slate-700">접근 권한이 없습니다</p>
+          <p className="text-xs text-slate-400 mt-1">리더보드는 회장과 총무만 조회 및 관리할 수 있습니다.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -191,7 +216,7 @@ export default function LeaderboardPage() {
                   const first = [...roundings]
                     .filter((r) => r.date.startsWith(y))
                     .sort((a, b) => b.date.localeCompare(a.date))[0];
-                  if (first) { setSelectedId(first.id); setInputs({}); setEditing(null); }
+                  if (first) { setSelectedId(first.id); setInputs({}); setHandicapInputs({}); setEditing(null); }
                 }}
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all",
@@ -215,7 +240,7 @@ export default function LeaderboardPage() {
         <div className="relative">
           <select
             value={selectedId}
-            onChange={(e) => { setSelectedId(e.target.value); setInputs({}); setEditing(null); }}
+            onChange={(e) => { setSelectedId(e.target.value); setInputs({}); setHandicapInputs({}); setEditing(null); }}
             className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-9 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400 appearance-none"
           >
             {yearRoundings.map((r) => (
@@ -275,6 +300,7 @@ export default function LeaderboardPage() {
                   const saved  = roundScores[member.id];
                   const isEdit = editing === member.id;
                   const inputVal = inputs[member.id] ?? "";
+                  const handicapInputVal = handicapInputs[member.id] ?? String(saved?.handicap ?? member.handicap);
 
                   return (
                     <div key={member.id} className="px-4 py-3">
@@ -288,8 +314,8 @@ export default function LeaderboardPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-semibold text-slate-800">{member.name}</p>
-                            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", getHandicapBadgeColor(member.handicap))}>
-                              H{formatHandicap(member.handicap)}
+                            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", getHandicapBadgeColor(saved?.handicap ?? member.handicap))}>
+                              H{formatHandicap(saved?.handicap ?? member.handicap)}
                             </span>
                           </div>
                           <p className="text-xs text-slate-400">{member.department}</p>
@@ -299,8 +325,13 @@ export default function LeaderboardPage() {
                           <div className="flex items-center gap-2 shrink-0">
                             <div className="text-right">
                               <p className="text-sm font-bold text-slate-800">{saved.gross}타</p>
+                              <p className="text-[10px] text-slate-400">H {formatHandicap(saved.handicap)}</p>
                             </div>
-                            <button onClick={() => { setEditing(member.id); setInputs((p) => ({ ...p, [member.id]: String(saved.gross) })); }}
+                            <button onClick={() => {
+                              setEditing(member.id);
+                              setInputs((p) => ({ ...p, [member.id]: String(saved.gross) }));
+                              setHandicapInputs((p) => ({ ...p, [member.id]: String(saved.handicap) }));
+                            }}
                               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
                               <Pencil size={13} />
                             </button>
@@ -311,17 +342,42 @@ export default function LeaderboardPage() {
                               type="number" min={18} max={200} placeholder="타수"
                               value={inputVal}
                               onChange={(e) => setInputs((p) => ({ ...p, [member.id]: e.target.value }))}
-                              onKeyDown={(e) => { if (e.key === "Enter") submitScore(member.id); if (e.key === "Escape") { setEditing(null); setInputs((p) => { const n={...p}; delete n[member.id]; return n; }); }}}
-                              className="w-20 border border-green-400 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-400"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") submitScore(member.id);
+                                if (e.key === "Escape") {
+                                  setEditing(null);
+                                  setInputs((p) => { const n={...p}; delete n[member.id]; return n; });
+                                  setHandicapInputs((p) => { const n={...p}; delete n[member.id]; return n; });
+                                }
+                              }}
+                              className="w-16 border border-green-400 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-400"
                               autoFocus={isEdit}
                             />
+                            <input
+                              type="number" min={-10} max={54} step={0.1} placeholder="핸디"
+                              value={handicapInputVal}
+                              onChange={(e) => setHandicapInputs((p) => ({ ...p, [member.id]: e.target.value }))}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") submitScore(member.id);
+                                if (e.key === "Escape") {
+                                  setEditing(null);
+                                  setInputs((p) => { const n={...p}; delete n[member.id]; return n; });
+                                  setHandicapInputs((p) => { const n={...p}; delete n[member.id]; return n; });
+                                }
+                              }}
+                              className="w-16 border border-green-400 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-400"
+                            />
                             <button onClick={() => submitScore(member.id)}
-                              disabled={!inputVal}
+                              disabled={!inputVal || !handicapInputVal}
                               className="p-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 transition-colors">
                               <Check size={13} />
                             </button>
                             {isEdit && (
-                              <button onClick={() => { setEditing(null); setInputs((p) => { const n={...p}; delete n[member.id]; return n; }); }}
+                              <button onClick={() => {
+                                setEditing(null);
+                                setInputs((p) => { const n={...p}; delete n[member.id]; return n; });
+                                setHandicapInputs((p) => { const n={...p}; delete n[member.id]; return n; });
+                              }}
                                 className="text-xs text-slate-400 hover:text-slate-600">취소</button>
                             )}
                           </div>
@@ -378,8 +434,8 @@ export default function LeaderboardPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <p className="text-sm font-semibold text-slate-800">{entry.member!.name}</p>
-                          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", getHandicapBadgeColor(entry.member!.handicap))}>
-                            H{formatHandicap(entry.member!.handicap)}
+                          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", getHandicapBadgeColor(entry.handicap))}>
+                            H{formatHandicap(entry.handicap)}
                           </span>
                         </div>
                       </div>
@@ -427,7 +483,7 @@ export default function LeaderboardPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/50">
-                      {["순위", "회원", "핸디캡", "라운딩 수", "평균타수", "평균 성과", "최고 성과"].map((h) => (
+                      {["순위", "회원", "평균 핸디캡", "라운딩 수", "평균타수", "평균 성과", "최고 성과"].map((h) => (
                         <th key={h} className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3.5 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -464,8 +520,8 @@ export default function LeaderboardPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3.5">
-                            <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", getHandicapBadgeColor(entry.member.handicap))}>
-                              {formatHandicap(entry.member.handicap)}
+                            <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", getHandicapBadgeColor(entry.avgHandicap))}>
+                              {formatHandicap(Math.round(entry.avgHandicap * 10) / 10)}
                             </span>
                           </td>
                           <td className="px-4 py-3.5">

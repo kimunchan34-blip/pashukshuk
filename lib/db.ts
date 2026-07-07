@@ -5,7 +5,7 @@
 import { supabase } from './supabase';
 import type { Member, Rounding, Transaction } from '@/types';
 
-export type RoundScore    = { gross: number; net: number };
+export type RoundScore    = { gross: number; net: number; handicap: number };
 export type AllRoundScores = Record<string, Record<string, RoundScore>>;
 
 // ─── 변환 헬퍼 ───────────────────────────────────────────────────────────────
@@ -119,17 +119,44 @@ export async function getRoundScores(): Promise<AllRoundScores> {
   if (error) throw error;
   const result: AllRoundScores = {};
   for (const row of (data ?? [])) {
-    (result[row.rounding_id] ??= {})[row.member_id] = { gross: row.gross, net: row.net };
+    (result[row.rounding_id] ??= {})[row.member_id] = {
+      gross: row.gross,
+      net: row.net,
+      handicap: row.handicap ?? Math.round((row.gross - row.net) * 10) / 10,
+    };
   }
   return result;
 }
 
 export async function upsertRoundScore(roundingId: string, memberId: string, score: RoundScore): Promise<void> {
   if (!supabase) return;
-  const { error } = await supabase.from('round_scores').upsert({
-    rounding_id: roundingId, member_id: memberId, gross: score.gross, net: score.net,
+  const payload = {
+    rounding_id: roundingId,
+    member_id: memberId,
+    gross: score.gross,
+    net: score.net,
+    handicap: score.handicap,
+  };
+  const { error } = await supabase.from('round_scores').upsert(payload);
+  if (!error) return;
+
+  const message = "message" in error ? String(error.message) : "";
+  const details = "details" in error ? String(error.details) : "";
+  const isMissingHandicapColumn =
+    error.code === "PGRST204" ||
+    (message + details).toLowerCase().includes("handicap");
+
+  if (!isMissingHandicapColumn) throw error;
+
+  // Older Supabase schemas do not have round_scores.handicap yet. Net already
+  // preserves the entered handicap because handicap = gross - net on readback.
+  const { error: legacyError } = await supabase.from('round_scores').upsert({
+    rounding_id: roundingId,
+    member_id: memberId,
+    gross: score.gross,
+    net: score.net,
   });
-  if (error) throw error;
+  if (legacyError) throw legacyError;
 }
 
 export async function deleteRoundScore(roundingId: string, memberId: string): Promise<void> {

@@ -47,10 +47,13 @@ create table if not exists round_scores (
   rounding_id text not null,
   member_id   text not null,
   gross       integer not null,
+  handicap    real not null default 0,
   net         real not null,
   created_at  timestamptz default now(),
   primary key (rounding_id, member_id)
 );
+
+alter table round_scores add column if not exists handicap real not null default 0;
 
 create table if not exists settings (
   key   text primary key,

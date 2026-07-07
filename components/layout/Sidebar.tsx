@@ -19,6 +19,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const { role, isAdmin, logout } = useRole();
+  const navItems = NAV_ITEMS.filter((item) => item.href !== "/leaderboard" || isAdmin);
 
   return (
     <aside className="hidden md:flex fixed left-0 top-0 h-screen w-60 flex-col z-30"
@@ -39,7 +40,7 @@ export function Sidebar() {
 
       {/* 네비게이션 */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-thin">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link

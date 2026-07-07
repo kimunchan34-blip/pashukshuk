@@ -124,7 +124,7 @@ export default function DashboardPage() {
 
       {/* 하단 2열 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <RankingCard members={members} />
+        <RankingCard members={members} roundings={roundings} />
         <UpcomingRoundings roundings={roundings} />
       </div>
     </div>

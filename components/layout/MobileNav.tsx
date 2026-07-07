@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, Flag, Wallet, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRole } from "@/contexts/RoleContext";
 
 const NAV_ITEMS = [
   { href: "/", label: "홈", icon: LayoutDashboard },
@@ -15,6 +16,8 @@ const NAV_ITEMS = [
 
 export function MobileNav() {
   const pathname = usePathname();
+  const { isAdmin } = useRole();
+  const navItems = NAV_ITEMS.filter((item) => item.href !== "/leaderboard" || isAdmin);
 
   return (
     <nav
@@ -22,7 +25,7 @@ export function MobileNav() {
       style={{ background: "#fff", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex items-stretch h-16">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link

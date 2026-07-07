@@ -11,14 +11,24 @@ interface Props {
   onAdd: (member: Member) => void;
   onEdit?: (member: Member) => void;
   editMember?: Member | null;
+  canManageHandicap?: boolean;
 }
 
 const ROLES = ["회장", "총무", "일반"];
 
 const INIT_FORM = {
   name: "", department: "", position: ROLES[2],
+  joinedAt: "",
   status: "active" as Member["status"],
 };
+
+function getTodayDateInput(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 function parseHandicap(str: string): number | null {
   if (str === "" || str === "-" || str === "-." || str === ".") return null;
@@ -33,7 +43,7 @@ const inputCls =
   "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white " +
   "focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-shadow";
 
-export function AddMemberModal({ open, onClose, onAdd, onEdit, editMember }: Props) {
+export function AddMemberModal({ open, onClose, onAdd, onEdit, editMember, canManageHandicap = false }: Props) {
   const isEdit = !!editMember;
 
   const [form, setForm] = useState(INIT_FORM);
@@ -47,11 +57,12 @@ export function AddMemberModal({ open, onClose, onAdd, onEdit, editMember }: Pro
         name:       editMember.name,
         department: editMember.department,
         position:   editMember.position,
+        joinedAt:   editMember.joinedAt,
         status:     editMember.status,
       });
       setHandicapStr(String(editMember.handicap));
     } else {
-      setForm(INIT_FORM);
+      setForm({ ...INIT_FORM, joinedAt: getTodayDateInput() });
       setHandicapStr("18");
     }
     setErrors({});
@@ -71,15 +82,18 @@ export function AddMemberModal({ open, onClose, onAdd, onEdit, editMember }: Pro
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "이름을 입력해주세요";
-    const hc = parseHandicap(handicapStr);
-    if (hc === null) e.handicap = "올바른 숫자를 입력해주세요";
-    else if (hc < -10 || hc > 54) e.handicap = "-10 ~ 54 사이 값을 입력해주세요";
+    if (!form.joinedAt) e.joinedAt = "가입일을 선택해주세요";
+    if (canManageHandicap) {
+      const hc = parseHandicap(handicapStr);
+      if (hc === null) e.handicap = "올바른 숫자를 입력해주세요";
+      else if (hc < -10 || hc > 54) e.handicap = "-10 ~ 54 사이 값을 입력해주세요";
+    }
     setErrors(e);
     return Object.keys(e).filter((k) => e[k]).length === 0;
   };
 
   const handleClose = () => {
-    setForm(INIT_FORM);
+    setForm({ ...INIT_FORM, joinedAt: getTodayDateInput() });
     setHandicapStr("18");
     setErrors({});
     onClose();
@@ -96,7 +110,7 @@ export function AddMemberModal({ open, onClose, onAdd, onEdit, editMember }: Pro
       onEdit({
         ...editMember,
         ...form,
-        handicap,
+        handicap: canManageHandicap ? handicap : editMember.handicap,
         phone: editMember.phone ?? "",
         email: editMember.email ?? "",
         avatarInitials: form.name.slice(0, 2),
@@ -105,10 +119,9 @@ export function AddMemberModal({ open, onClose, onAdd, onEdit, editMember }: Pro
       onAdd({
         id: `m${Date.now()}`,
         ...form,
-        handicap,
+        handicap: canManageHandicap ? handicap : 18,
         phone: "",
         email: "",
-        joinedAt: new Date().toISOString().split("T")[0],
         avatarInitials: form.name.slice(0, 2),
       });
     }
@@ -145,13 +158,24 @@ export function AddMemberModal({ open, onClose, onAdd, onEdit, editMember }: Pro
           </FormField>
         </div>
 
-        {/* 직책 / 핸디캡 */}
+        {/* 직책 / 가입일 */}
         <div className="grid grid-cols-2 gap-3">
           <FormField label="직책">
             <Select value={form.position} onChange={(e) => setField("position", e.target.value)}>
               {ROLES.map((r) => <option key={r}>{r}</option>)}
             </Select>
           </FormField>
+          <FormField label="가입일" required error={errors.joinedAt}>
+            <input
+              className={cn(inputCls, errors.joinedAt && "border-red-400 focus:ring-red-400")}
+              type="date"
+              value={form.joinedAt}
+              onChange={(e) => setField("joinedAt", e.target.value)}
+            />
+          </FormField>
+        </div>
+
+        {canManageHandicap && (
           <FormField label="핸디캡" required error={errors.handicap}>
             <input
               className={cn(inputCls, errors.handicap && "border-red-400 focus:ring-red-400")}
@@ -162,7 +186,7 @@ export function AddMemberModal({ open, onClose, onAdd, onEdit, editMember }: Pro
               onChange={handleHandicapChange}
             />
           </FormField>
-        </div>
+        )}
 
         {/* 가입 상태 */}
         <FormField label="가입 상태">
