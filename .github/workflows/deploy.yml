@@ -1,4 +1,4 @@
-name: GitHub Pages 배포
+name: Deploy GitHub Pages
 
 on:
   push:
@@ -18,17 +18,22 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: 패키지 설치
+      - name: Install dependencies
         run: npm ci
 
-      - name: 빌드
+      - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_ADMIN_PASSWORD: ${{ secrets.NEXT_PUBLIC_ADMIN_PASSWORD }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyA4gzyFe9vpDHStWX4nK0t28ycGz73YrOc
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: pashukshuk-2e239.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: pashukshuk-2e239
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: pashukshuk-2e239.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "1008200794336"
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:1008200794336:web:dc9d5a65e32f399c9d5085
+          NEXT_PUBLIC_PRESIDENT_PASSWORD: ${{ secrets.NEXT_PUBLIC_PRESIDENT_PASSWORD }}
+          NEXT_PUBLIC_SECRETARY_PASSWORD: ${{ secrets.NEXT_PUBLIC_SECRETARY_PASSWORD }}
 
-      - name: GitHub Pages 배포
+      - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
