@@ -9,7 +9,7 @@ import { AppShell } from "@/components/layout/AppShell";
 export const metadata: Metadata = {
   title: { default: "파슉슉버디탁", template: "%s | 파슉슉버디탁" },
   description: "사내 골프동호회 통합 관리 시스템",
-  manifest: "/manifest.json",
+  manifest: "/pashukshuk/manifest.json",
 };
 
 export const viewport: Viewport = {
