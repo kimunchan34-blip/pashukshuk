@@ -1,0 +1,8 @@
+{
+  "name": "pashukshuk buddy tak",
+  "short_name": "pashukshuk",
+  "start_url": "/pashukshuk/",
+  "display": "standalone",
+  "background_color": "#0B4619",
+  "theme_color": "#0B4619"
+}
