@@ -5,8 +5,8 @@ import { CircleDot, Lock, Eye, EyeOff, ChevronRight } from "lucide-react";
 import { useRole, type Role } from "@/contexts/RoleContext";
 
 const ROLE_PASSWORDS: Record<"회장" | "총무", string> = {
-  회장: process.env.NEXT_PUBLIC_PRESIDENT_PASSWORD ?? "6789",
-  총무: process.env.NEXT_PUBLIC_SECRETARY_PASSWORD ?? "2345",
+  회장: process.env.NEXT_PUBLIC_PRESIDENT_PASSWORD || "6789",
+  총무: process.env.NEXT_PUBLIC_SECRETARY_PASSWORD || "2345",
 };
 
 export function LoginScreen() {
